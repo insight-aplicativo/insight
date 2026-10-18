@@ -267,6 +267,12 @@ header.hc .menu {
   flex:none;
   box-shadow:inset 0 0 0 2px var(--bg2)
 }
+.av{overflow:hidden}
+.av img{width:100%;height:100%;object-fit:cover;display:block;border-radius:50%}
+.perfil-foto{text-align:center;margin-bottom:18px}
+.perfil-foto .av{margin:0 auto 8px}
+.perfil-foto .avatar-sm{margin-right:auto}
+.fotolink{color:var(--g);cursor:pointer;font-size:.9rem;text-decoration:underline;margin:0 6px}
 .avatar-sm{display:inline-flex;vertical-align:middle;margin-right:6px}
 .idea-tags{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.idea-tags span{font-size:.75rem;padding:3px 8px;border:1px solid var(--bd2);border-radius:12px;color:var(--mut)}
 .userline{display:flex;align-items:center;gap:8px;min-width:0;overflow-wrap:anywhere;word-break:break-word}
@@ -1026,6 +1032,7 @@ async function loadAll() {
   DB.empresas = EMPRESA ? [EMPRESA] : seed.empresas;
   normalizeData();
   Object.keys(SYNC).forEach(snapshot);
+  await loadFotos(true);
 }
 
 async function loadCompanyData() {
@@ -1043,7 +1050,7 @@ async function loadCompanyData() {
 }
 
 async function refreshData() {
-  let changed = false;
+  let changed = await loadFotos(false);
   for (const t of Object.keys(SYNC)) {
     if (dirty.has(t) || flushing.has(t)) continue;
     const lista = await loadTable(t);
@@ -1101,11 +1108,33 @@ async function flush() {
 }
 
 /* Consultas */
-const getUser = email => DB.usuarios.find(u => u.email == email) || { nome: email };
-function avatarHtml(nome, size = 30) {
-  const parts = String(nome || '').trim().split(/\s+/).filter(Boolean);
+const getUser = email => DB.usuarios.find(u => u.email == email) || { nome: email, email };
+
+/* ---- foto de perfil: 1 nó por usuário em empresas/{empresa}/fotos/{e-mail}; guardada já reduzida (256 px, JPEG) ---- */
+const FOTO_MAX_BYTES = 200 * 1024;
+let FOTOS = {}, fotosTs = 0;
+const fotoKey = e => String(e || '').trim().toLowerCase().replace(/[.#$\[\]\/]/g, ',');
+const fotoDe = e => { const v = FOTOS[fotoKey(e)]; return typeof v == 'string' && /^data:image\//.test(v) ? v : ''; };
+async function loadFotos(force) {
+  if (!EMP_ID) return false;
+  if (!force && Date.now() - fotosTs < 300000) return false;
+  try {
+    const val = (await fb.db.ref('empresas/' + EMP_ID + '/fotos').get()).val() || {};
+    fotosTs = Date.now();
+    if (JSON.stringify(val) === JSON.stringify(FOTOS)) return false;
+    FOTOS = val; return true;
+  } catch (e) { fotosTs = Date.now(); return false; }
+}
+/* aceita um usuário (com foto, se houver) ou apenas o nome */
+function avatarHtml(ref, size = 30) {
+  const u = ref && typeof ref == 'object' ? ref : { nome: ref };
+  const nome = u.nome || '';
+  const st = `width:${size}px;height:${size}px;font-size:${Math.max(10, Math.round(size * .36))}px`;
+  const foto = u.email ? fotoDe(u.email) : '';
+  if (foto) return `<span class="av avatar-sm" style="${st}" title="${esc(nome)}"><img src="${esc(foto)}" alt=""></span>`;
+  const parts = String(nome).trim().split(/\s+/).filter(Boolean);
   const initials = (parts.length > 1 ? parts[0][0] + parts[parts.length - 1][0] : (parts[0] || '?').slice(0, 2)).toUpperCase();
-  return `<span class="av avatar-sm" style="width:${size}px;height:${size}px;font-size:${Math.max(10, Math.round(size * .36))}px" title="${esc(nome || '')}">${esc(initials)}</span>`;
+  return `<span class="av avatar-sm" style="${st}" title="${esc(nome)}">${esc(initials)}</span>`;
 }
 const isApprover = () => ME.perfil != 'usuario_comum';
 const isAdmin = () => ME.perfil == 'admin';
@@ -1143,7 +1172,7 @@ const LGPD = `
 const DOC_UNIFICADO = '<h2 style="color:var(--g)">Termos de uso</h2>' + TERMOS + '<h2 style="color:var(--g)">Política de privacidade</h2>' + PRIVACIDADE + LGPD;
 function footerHtml() {
   return `<footer class="foot">
-    <div class="dev">Desenvolvido por <img src="img/img.png" alt="" onerror="this.style.display='none'"><span class="brand">INSIGHT</span><small>by compreaquidevs</small></div>
+    <div class="dev">Desenvolvido por <img src="img/img.png" alt="" onerror="this.style.display='none'"><span class="brand">INSIGHT</span><small>by INSIGHT TECH</small></div>
     <div class="links" style="margin-top:8px"><a href="#termos" target="_blank">Termos, Privacidade e LGPD</a></div>
     <div style="margin-top:6px">© ${new Date().getFullYear()} Todos os direitos reservados.</div>
   </footer>`;
@@ -1160,7 +1189,7 @@ function renderCompanyPage() {
     <div class="doc">
       <div style="text-align:center">${logoImg('style="height:90px;border-radius:12px"')}</div>
       <h1>INSIGHT: Toda grande inovação começa com um insight.</h1>
-      <p>A <b>compreaquidevs</b> desenvolve o <b>INSIGHT</b>, software de programa de ideias onde cada ideia de colaborador importa. Colaboradores propõem, curtem e comentam; aprovadores avaliam e acompanham até a implantação.</p>
+      <p>A INSIGHT TECH desenvolve o INSIGHT, software de programa de ideias com IA integrada, onde cada ideia de colaborador importa. Colaboradores propõem, curtem e comentam; aprovadores avaliam e acompanham até a implantação.</p>
 
       <div class="car" style="margin-top:18px">
         ${CAROUSEL_IMGS.map((src, k) => `<img src="${src}" class="${k ? '' : 'on'}">`).join('')}
@@ -1175,7 +1204,7 @@ function renderCompanyPage() {
       <p>Muitas vezes, quem está na linha de frente é quem enxerga primeiro o desperdício, o gargalo ou a oportunidade. O INSIGHT dá a essas pessoas um canal simples e organizado para transformar uma observação do dia a dia em uma proposta concreta.</p>
 
       <h2>O produto</h2>
-      <p>Feed de ideias, pontuação, programas de ideia, fluxo de avaliação com parecer, board kanban e gestão de usuários, tudo por empresa.</p>
+      <p>Feed de ideias, pontuação, programas de ideia, fluxo de avaliação com parecer, board kanban, IA integrada e gestão de usuários, tudo por empresa.</p>
       <div class="feats">
         <div class="box"><h3>💡 Feed de ideias</h3><p class="meta">Todos acompanham as ideias da empresa, curtem e comentam para fortalecer as melhores propostas.</p></div>
         <div class="box"><h3>🏆 Pontuação</h3><p class="meta">Quem propõe, curte e comenta ganha pontos e aparece no ranking geral, estimulando a participação.</p></div>
@@ -1183,6 +1212,7 @@ function renderCompanyPage() {
         <div class="box"><h3>✅ Avaliação com parecer</h3><p class="meta">Aprovadores analisam cada ideia, atualizam o status e deixam um parecer para o idealizador.</p></div>
         <div class="box"><h3>📋 Board kanban</h3><p class="meta">Organize as ações de implantação em colunas e acompanhe o andamento de cada tarefa.</p></div>
         <div class="box"><h3>📈 Indicadores e metas</h3><p class="meta">Acompanhe indicadores de ideias e defina metas e submetas com responsáveis e prazos.</p></div>
+        <div class="box"><h3>🤖 IA integrada</h3><p class="meta">Ao cadastrar uma ideia, a IA analisa o título e mostra ideias parecidas já cadastradas, evitando duplicidades e reaproveitando o que já existe.</p></div>
         <div class="box"><h3>👥 Gestão de usuários</h3><p class="meta">Perfis de colaborador, aprovador e administrador, com acesso separado por empresa.</p></div>
       </div>
 
@@ -1203,8 +1233,8 @@ function renderCompanyPage() {
         <li>Acompanhamento: indicadores mostram quantas ideias foram implantadas e quantas foram reprovadas.</li>
       </ul>
 
-      <h2>Sobre a compreaquidevs</h2>
-      <p>A <b>compreaquidevs</b> é uma empresa de desenvolvimento de software dedicada a criar ferramentas que aproximam pessoas e resultados. O INSIGHT nasceu da convicção de que boas ideias existem em todos os lugares da organização e só precisam de um espaço para serem ouvidas.</p>
+      <h2>Sobre a INSIGHT TECH</h2>
+      <p>A INSIGHT TECH é uma empresa de desenvolvimento de software dedicada a criar ferramentas que aproximam pessoas e resultados. O INSIGHT nasceu da convicção de que boas ideias existem em todos os lugares da organização e só precisam de um espaço para serem ouvidas.</p>
 
       <a class="cta" href="#" onclick="location.hash='';location.reload();return false">Acessar o INSIGHT</a>
     </div>`;
@@ -1535,7 +1565,6 @@ Proponha.‖Propose.‖Proponga.
 Engaje.‖Engage.‖Involucre.
 Avalie.‖Review.‖Evalúe.
 Implante.‖Implement.‖Implante.
-Sobre a compreaquidevs‖About compreaquidevs‖Sobre compreaquidevs
 Foco: programas de ideia direcionam as ideias para os temas que mais importam à empresa.‖Focus: idea programs steer ideas toward the themes that matter most to the company.‖Enfoque: los programas de ideas dirigen las ideas hacia los temas que más importan a la empresa.
 Engajamento: pontuação e reconhecimento incentivam a participação contínua.‖Engagement: scores and recognition encourage ongoing participation.‖Compromiso: la puntuación y el reconocimiento incentivan la participación continua.
 Cultura de inovação: todos os colaboradores têm voz, independentemente do cargo.‖Innovation culture: every employee has a voice, regardless of role.‖Cultura de innovación: todos los colaboradores tienen voz, sin importar el cargo.
@@ -1607,6 +1636,258 @@ Nenhum colega disponível.‖No colleagues available.‖No hay colegas disponibl
 . Apenas usuários da mesma empresa veem o conteúdo publicado.‖. Only users from the same company see the published content.‖. Solo los usuarios de la misma empresa ven el contenido publicado.
 Enviamos para‖We sent it to‖Enviamos a
 Guardamos os dados do usuário e‖We store the user's data and‖Guardamos los datos del usuario y
+Toda grande mudança começa com uma ideia.‖Every great change starts with an idea.‖Todo gran cambio comienza con una idea.
+A inovação distingue líderes de seguidores.‖Innovation distinguishes leaders from followers.‖La innovación distingue a los líderes de los seguidores.
+Ideias pequenas, quando compartilhadas, movem o mundo.‖Small ideas, when shared, move the world.‖Las ideas pequeñas, cuando se comparten, mueven el mundo.
+O futuro pertence a quem ousa propor.‖The future belongs to those who dare to propose.‖El futuro pertenece a quienes se atreven a proponer.
+Toda grande inovação começa com um insight.‖Every great innovation starts with an insight.‖Toda gran innovación comienza con un insight.
+INSIGHT: Toda grande inovação começa com um insight.‖INSIGHT: Every great innovation starts with an insight.‖INSIGHT: Toda gran innovación comienza con un insight.
+~o conteúdo não é uma lista‖the content is not a list‖el contenido no es una lista
+~sem permissão de acesso‖no access permission‖sin permiso de acceso
+~sem conexão com o servidor‖no connection to the server‖sin conexión con el servidor
+Não foi possível carregar os dados da empresa. Tente novamente.‖Could not load the company data. Please try again.‖No se pudieron cargar los datos de la empresa. Inténtelo de nuevo.
+Empresa do usuário não encontrada. Fale com o administrador.‖The user's company was not found. Contact the administrator.‖No se encontró la empresa del usuario. Hable con el administrador.
+Usuário sem empresa vinculada. Fale com o administrador.‖User has no linked company. Contact the administrator.‖Usuario sin empresa vinculada. Hable con el administrador.
+Usuário inativo. Fale com o administrador.‖Inactive user. Contact the administrator.‖Usuario inactivo. Hable con el administrador.
+Muitas tentativas. Aguarde alguns minutos e tente novamente.‖Too many attempts. Wait a few minutes and try again.‖Demasiados intentos. Espere unos minutos e inténtelo de nuevo.
+Sem conexão. Verifique sua internet.‖No connection. Check your internet.‖Sin conexión. Verifique su internet.
+A nova senha é muito fraca.‖The new password is too weak.‖La nueva contraseña es demasiado débil.
+Falha ao alterar a senha.‖Failed to change the password.‖Error al cambiar la contraseña.
+Esta solicitação já foi tratada por outra pessoa.‖This request has already been handled by someone else.‖Esta solicitud ya fue atendida por otra persona.
+O e-mail foi enviado, mas não consegui marcar a solicitação como atendida.‖The email was sent, but I could not mark the request as handled.‖El correo fue enviado, pero no pude marcar la solicitud como atendida.
+~) um e-mail com o link para criar uma nova senha.‖) an email with the link to create a new password.‖) un correo con el enlace para crear una nueva contraseña.
+Falha ao enviar o e-mail de redefinição.‖Failed to send the reset email.‖Error al enviar el correo de restablecimiento.
+seu e-mail‖your email‖su correo
+E-mail inválido.‖Invalid email.‖Correo electrónico inválido.
+Falha ao enviar a solicitação. Tente novamente.‖Failed to send the request. Please try again.‖Error al enviar la solicitud. Inténtelo de nuevo.
+Nova mensagem do usuário‖New message from the user‖Nuevo mensaje del usuario
+Resposta à sua reclamação‖Reply to your complaint‖Respuesta a su reclamación
+~O superadmin respondeu à reclamação "‖The superadmin replied to the complaint "‖El superadmin respondió a la reclamación "
+~". Abra "Reportar problema" para ver e responder.‖". Open "Report a problem" to view and reply.‖". Abra "Reportar problema" para ver y responder.
+A plataforma serve ao compartilhamento de ideias profissionais. É proibido publicar conteúdo ofensivo, ilegal ou que viole direitos de terceiros.‖The platform exists to share professional ideas. Publishing offensive or illegal content, or content that violates third-party rights, is prohibited.‖La plataforma sirve para compartir ideas profesionales. Está prohibido publicar contenido ofensivo, ilegal o que viole derechos de terceros.
+As ideias publicadas podem ser avaliadas e implantadas pela empresa a que o usuário pertence.‖Published ideas may be evaluated and implemented by the company the user belongs to.‖Las ideas publicadas pueden ser evaluadas e implementadas por la empresa a la que pertenece el usuario.
+Aprovadores e administradores podem editar status, solicitar ajustes e inativar contas que violem estes termos.‖Approvers and administrators may edit statuses, request adjustments and deactivate accounts that violate these terms.‖Los aprobadores y administradores pueden editar estados, solicitar ajustes e inactivar cuentas que violen estos términos.
+Guardamos nome, e-mail, data de nascimento, empresa, perfil, ideias, comentários e curtidas.‖We store name, email, date of birth, company, profile, ideas, comments and likes.‖Guardamos nombre, correo electrónico, fecha de nacimiento, empresa, perfil, ideas, comentarios y me gusta.
+Com "Lembrar login", sua sessão fica salva no navegador; você pode removê-la ao sair.‖With "Remember login", your session is saved in the browser; you can remove it when you sign out.‖Con "Recordar inicio de sesión", su sesión queda guardada en el navegador; puede eliminarla al salir.
+confirmação de tratamento, acesso, correção, anonimização, portabilidade e eliminação dos dados, mediante solicitação ao administrador da sua empresa.‖confirmation of processing, access, correction, anonymization, portability and deletion of data, upon request to your company's administrator.‖confirmación de tratamiento, acceso, corrección, anonimización, portabilidad y eliminación de los datos, mediante solicitud al administrador de su empresa.
+A INSIGHT TECH desenvolve o INSIGHT, software de programa de ideias com IA integrada, onde cada ideia de colaborador importa. Colaboradores propõem, curtem e comentam; aprovadores avaliam e acompanham até a implantação.‖INSIGHT TECH develops INSIGHT, an idea program software with integrated AI, where every employee's idea matters. Employees propose, like and comment; approvers evaluate and follow ideas through to implementation.‖INSIGHT TECH desarrolla INSIGHT, un software de programa de ideas con IA integrada, donde cada idea de un colaborador importa. Los colaboradores proponen, dan me gusta y comentan; los aprobadores evalúan y hacen el seguimiento hasta la implementación.
+A roda, a imprensa, a eletricidade e a internet nasceram de alguém que questionou o óbvio. Grandes transformações raramente surgem de grandes planos: surgem de pequenas ideias bem ouvidas. Empresas que criam espaço para propostas de todos os níveis aprendem mais rápido, resolvem problemas reais e engajam suas equipes.‖The wheel, the printing press, electricity and the internet were born from someone who questioned the obvious. Great transformations rarely come from grand plans: they come from small ideas that were well heard. Companies that make room for proposals from all levels learn faster, solve real problems and engage their teams.‖La rueda, la imprenta, la electricidad e internet nacieron de alguien que cuestionó lo obvio. Las grandes transformaciones rara vez surgen de grandes planes: surgen de pequeñas ideas bien escuchadas. Las empresas que crean espacio para propuestas de todos los niveles aprenden más rápido, resuelven problemas reales y involucran a sus equipos.
+Muitas vezes, quem está na linha de frente é quem enxerga primeiro o desperdício, o gargalo ou a oportunidade. O INSIGHT dá a essas pessoas um canal simples e organizado para transformar uma observação do dia a dia em uma proposta concreta.‖Often, those on the front line are the first to see the waste, the bottleneck or the opportunity. INSIGHT gives these people a simple, organized channel to turn an everyday observation into a concrete proposal.‖Muchas veces, quien está en primera línea es quien ve primero el desperdicio, el cuello de botella o la oportunidad. INSIGHT ofrece a estas personas un canal simple y organizado para convertir una observación del día a día en una propuesta concreta.
+O produto‖The product‖El producto
+Feed de ideias, pontuação, programas de ideia, fluxo de avaliação com parecer, board kanban, IA integrada e gestão de usuários, tudo por empresa.‖Idea feed, ranking, idea programs, review flow with feedback, kanban board, integrated AI and user management, all per company.‖Feed de ideas, puntuación, programas de ideas, flujo de evaluación con opinión, tablero kanban, IA integrada y gestión de usuarios, todo por empresa.
+🤖 IA integrada‖🤖 Integrated AI‖🤖 IA integrada
+Ao cadastrar uma ideia, a IA analisa o título e mostra ideias parecidas já cadastradas, evitando duplicidades e reaproveitando o que já existe.‖When you register an idea, the AI analyzes the title and shows similar ideas already registered, avoiding duplicates and reusing what already exists.‖Al registrar una idea, la IA analiza el título y muestra ideas parecidas ya registradas, evitando duplicidades y aprovechando lo que ya existe.
+O colaborador cadastra a ideia, escolhe o programa de ideia e descreve o benefício esperado; o aprovador já vem definido no programa. Também é possível salvar como rascunho ou marcar a ideia como privada.‖The employee registers the idea, chooses the idea program and describes the expected benefit; the approver is already defined in the program. You can also save it as a draft or mark the idea as private.‖El colaborador registra la idea, elige el programa de ideas y describe el beneficio esperado; el aprobador ya viene definido en el programa. También es posible guardarla como borrador o marcarla como privada.
+A INSIGHT TECH é uma empresa de desenvolvimento de software dedicada a criar ferramentas que aproximam pessoas e resultados. O INSIGHT nasceu da convicção de que boas ideias existem em todos os lugares da organização e só precisam de um espaço para serem ouvidas.‖INSIGHT TECH is a software development company dedicated to creating tools that bring people and results closer together. INSIGHT was born from the conviction that good ideas exist everywhere in the organization and only need a space to be heard.‖INSIGHT TECH es una empresa de desarrollo de software dedicada a crear herramientas que acercan a las personas y los resultados. INSIGHT nació de la convicción de que las buenas ideas existen en todos los lugares de la organización y solo necesitan un espacio para ser escuchadas.
+Sobre a INSIGHT TECH‖About INSIGHT TECH‖Sobre INSIGHT TECH
+Alterar foto‖Change photo‖Cambiar foto
+Remover foto‖Remove photo‖Quitar foto
+Imagem de até 200 KB.‖Image up to 200 KB.‖Imagen de hasta 200 KB.
+Escolha um arquivo de imagem.‖Choose an image file.‖Elija un archivo de imagen.
+A imagem deve ter no máximo 200 KB.‖The image must be 200 KB or less.‖La imagen debe tener como máximo 200 KB.
+Salvando foto...‖Saving photo...‖Guardando foto...
+Foto atualizada!‖Photo updated!‖¡Foto actualizada!
+Foto removida.‖Photo removed.‖Foto eliminada.
+Não foi possível salvar a foto. Tente outra imagem.‖Could not save the photo. Try another image.‖No se pudo guardar la foto. Pruebe con otra imagen.
+Não foi possível remover a foto.‖Could not remove the photo.‖No se pudo eliminar la foto.
+Dark (padrão)‖Dark (default)‖Dark (predeterminado)
+Light Mode‖Light mode‖Modo claro
+Design Thinking é uma abordagem centrada no ser humano para resolver problemas complexos, combinando empatia, criatividade e experimentação.‖Design Thinking is a human-centered approach to solving complex problems, combining empathy, creativity and experimentation.‖El Design Thinking es un enfoque centrado en el ser humano para resolver problemas complejos, combinando empatía, creatividad y experimentación.
+Ele é organizado em etapas: empatizar, definir, idear, prototipar e testar. Elas não são rígidas: você pode voltar a uma etapa anterior sempre que aprender algo novo.‖It is organized in stages: empathize, define, ideate, prototype and test. They are not rigid: you can go back to a previous stage whenever you learn something new.‖Se organiza en etapas: empatizar, definir, idear, prototipar y probar. No son rígidas: puede volver a una etapa anterior siempre que aprenda algo nuevo.
+Empatizar e definir‖Empathize and define‖Empatizar y definir
+Entreviste e observe os usuários. Depois, resuma o problema em uma frase clara, chamada declaração de problema.‖Interview and observe users. Then summarize the problem in one clear sentence, called a problem statement.‖Entreviste y observe a los usuarios. Luego, resuma el problema en una frase clara, llamada declaración del problema.
+Idear e prototipar‖Ideate and prototype‖Idear y prototipar
+Gere muitas ideias sem julgar, escolha as mais promissoras e construa versões simples e baratas para testar.‖Generate many ideas without judging, choose the most promising ones and build simple, cheap versions to test.‖Genere muchas ideas sin juzgar, elija las más prometedoras y construya versiones simples y baratas para probar.
+Mostre o protótipo para usuários reais, colete feedback e melhore. Errar cedo e barato é parte do método.‖Show the prototype to real users, collect feedback and improve. Failing early and cheaply is part of the method.‖Muestre el prototipo a usuarios reales, recoja comentarios y mejore. Equivocarse pronto y barato es parte del método.
+~O Design Thinking é centrado em:‖Design Thinking is centered on:‖El Design Thinking está centrado en:
+~Qual etapa vem logo após "empatizar"?‖Which stage comes right after "empathize"?‖¿Qué etapa viene justo después de "empatizar"?
+~Na etapa de idear, o ideal é:‖In the ideate stage, the ideal is to:‖En la etapa de idear, lo ideal es:
+~Protótipos devem ser:‖Prototypes should be:‖Los prototipos deben ser:
+~As etapas do método são:‖The stages of the method are:‖Las etapas del método son:
+Tecnologia‖Technology‖Tecnología
+Pessoas‖People‖Personas
+Custos‖Costs‖Costos
+Definir‖Define‖Definir
+Testar‖Test‖Probar
+Lançar‖Launch‖Lanzar
+Julgar cada ideia‖Judge every idea‖Juzgar cada idea
+Gerar muitas ideias‖Generate many ideas‖Generar muchas ideas
+Escolher só uma‖Choose only one‖Elegir solo una
+Perfeitos‖Perfect‖Perfectos
+Simples e baratos‖Simple and cheap‖Simples y baratos
+Secretos‖Secret‖Secretos
+Rígidas e lineares‖Rigid and linear‖Rígidas y lineales
+Flexíveis e repetíveis‖Flexible and repeatable‖Flexibles y repetibles
+Opcionais‖Optional‖Opcionales
+Lean Startup, popularizado por Eric Ries, propõe validar hipóteses com o menor esforço possível antes de investir pesado em uma ideia.‖Lean Startup, popularized by Eric Ries, proposes validating hypotheses with the least possible effort before investing heavily in an idea.‖Lean Startup, popularizado por Eric Ries, propone validar hipótesis con el menor esfuerzo posible antes de invertir fuertemente en una idea.
+O ciclo central é construir, medir e aprender. O objetivo é descobrir rapidamente o que os clientes realmente querem.‖The core cycle is build, measure and learn. The goal is to quickly discover what customers really want.‖El ciclo central es construir, medir y aprender. El objetivo es descubrir rápidamente lo que los clientes realmente quieren.
+O Produto Mínimo Viável é a versão mais simples que permite testar uma hipótese com clientes reais.‖The Minimum Viable Product is the simplest version that lets you test a hypothesis with real customers.‖El Producto Mínimo Viable es la versión más simple que permite probar una hipótesis con clientes reales.
+Métricas acionáveis‖Actionable metrics‖Métricas accionables
+Prefira métricas que ajudem a decidir (conversão, retenção) a métricas de vaidade (curtidas, visitas).‖Prefer metrics that help you decide (conversion, retention) over vanity metrics (likes, visits).‖Prefiera métricas que ayuden a decidir (conversión, retención) a métricas de vanidad (me gusta, visitas).
+Se os dados mostram que a hipótese não se sustenta, mude a direção mantendo o aprendizado obtido.‖If the data shows the hypothesis does not hold, change direction while keeping what you learned.‖Si los datos muestran que la hipótesis no se sostiene, cambie de dirección conservando el aprendizaje obtenido.
+~O ciclo central do Lean Startup é:‖The core cycle of Lean Startup is:‖El ciclo central de Lean Startup es:
+~MVP significa:‖MVP stands for:‖MVP significa:
+~Qual é uma métrica acionável?‖Which one is an actionable metric?‖¿Cuál es una métrica accionable?
+~Pivotar é:‖To pivot is to:‖Pivotar es:
+~O objetivo principal é:‖The main goal is:‖El objetivo principal es:
+Planejar, executar, entregar‖Plan, execute, deliver‖Planificar, ejecutar, entregar
+Construir, medir, aprender‖Build, measure, learn‖Construir, medir, aprender
+Vender, cobrar, expandir‖Sell, charge, expand‖Vender, cobrar, expandir
+Produto Mínimo Viável‖Minimum Viable Product‖Producto Mínimo Viable
+Maior Valor do Projeto‖Greatest Project Value‖Mayor Valor del Proyecto
+Modelo Mais Vendido‖Best-Selling Model‖Modelo Más Vendido
+Número de visitas‖Number of visits‖Número de visitas
+Taxa de conversão‖Conversion rate‖Tasa de conversión
+Curtidas‖Likes‖Me gusta
+Desistir de tudo‖Give up on everything‖Renunciar a todo
+Mudar a direção com base em dados‖Change direction based on data‖Cambiar de dirección con base en datos
+Ignorar o cliente‖Ignore the customer‖Ignorar al cliente
+Validar hipóteses rápido‖Validate hypotheses quickly‖Validar hipótesis rápido
+Escrever planos longos‖Write long plans‖Escribir planes largos
+Reduzir equipe‖Reduce the team‖Reducir el equipo
+Inovar não depende apenas de talento individual: depende de um ambiente que incentive a experimentação e proteja quem propõe novas ideias.‖Innovating does not depend only on individual talent: it depends on an environment that encourages experimentation and protects those who propose new ideas.‖Innovar no depende solo del talento individual: depende de un ambiente que incentive la experimentación y proteja a quien propone nuevas ideas.
+Empresas inovadoras valorizam segurança psicológica, diversidade de pontos de vista e aprendizado com falhas.‖Innovative companies value psychological safety, diversity of viewpoints and learning from failure.‖Las empresas innovadoras valoran la seguridad psicológica, la diversidad de puntos de vista y el aprendizaje a partir de los fallos.
+Segurança psicológica‖Psychological safety‖Seguridad psicológica
+As pessoas precisam sentir que podem sugerir e errar sem punição ou ridicularização.‖People need to feel they can suggest and make mistakes without punishment or ridicule.‖Las personas necesitan sentir que pueden sugerir y equivocarse sin castigo ni ridiculización.
+Diversidade‖Diversity‖Diversidad
+Times com experiências diferentes enxergam problemas por ângulos distintos e geram soluções mais ricas.‖Teams with different experiences see problems from different angles and generate richer solutions.‖Los equipos con experiencias distintas ven los problemas desde ángulos diferentes y generan soluciones más ricas.
+Reconhecimento‖Recognition‖Reconocimiento
+Celebrar tentativas, e não só sucessos, mantém o fluxo de ideias vivo.‖Celebrating attempts, not only successes, keeps the flow of ideas alive.‖Celebrar los intentos, y no solo los éxitos, mantiene vivo el flujo de ideas.
+~Inovação depende de:‖Innovation depends on:‖La innovación depende de:
+~Segurança psicológica significa:‖Psychological safety means:‖La seguridad psicológica significa:
+~Times diversos tendem a:‖Diverse teams tend to:‖Los equipos diversos tienden a:
+~Como tratar falhas?‖How should failures be handled?‖¿Cómo tratar los fallos?
+~Reconhecer tentativas:‖Recognizing attempts:‖Reconocer los intentos:
+Só de talento individual‖Only individual talent‖Solo del talento individual
+Ambiente que incentiva experimentar‖An environment that encourages experimentation‖Un ambiente que incentiva experimentar
+Só de orçamento‖Only budget‖Solo del presupuesto
+Poder propor e errar sem punição‖Being able to propose and make mistakes without punishment‖Poder proponer y equivocarse sin castigo
+Ter segurança patrimonial‖Having financial security‖Tener seguridad patrimonial
+Evitar riscos‖Avoiding risks‖Evitar riesgos
+Pensar igual‖Think alike‖Pensar igual
+Gerar soluções mais ricas‖Generate richer solutions‖Generar soluciones más ricas
+Ser mais lentos sempre‖Always be slower‖Ser siempre más lentos
+Esconder‖Hide them‖Esconderlas
+Punir‖Punish‖Castigar
+Aprender com elas‖Learn from them‖Aprender de ellas
+Mantém ideias fluindo‖Keeps ideas flowing‖Mantiene las ideas fluyendo
+Atrapalha‖Gets in the way‖Estorba
+É irrelevante‖Is irrelevant‖Es irrelevante
+~🕒 Histórico de status (‖🕒 Status history (‖🕒 Historial de estado (
+~data não registrada‖date not recorded‖fecha no registrada
+Você foi citado em um comentário‖You were mentioned in a comment‖Fue mencionado en un comentario
+~citou você em um comentário‖mentioned you in a comment‖le mencionó en un comentario
+~· Coautores:‖· Co-authors:‖· Coautores:
+~· Benefício:‖· Benefit:‖· Beneficio:
+~na ideia "‖in the idea "‖en la idea "
+Ranking do mês‖Monthly ranking‖Ranking del mes
+Ranking do programa de ideia‖Idea program ranking‖Ranking del programa de ideas
+Score geral‖Overall score‖Puntuación general
+~IDEIA DO MÊS‖IDEA OF THE MONTH‖IDEA DEL MES
+Primeira ideia‖First idea‖Primera idea
+Enviou a primeira ideia‖Submitted the first idea‖Envió la primera idea
+Ideia implantada‖Implemented idea‖Idea implementada
+Teve uma ideia implantada‖Had an idea implemented‖Tuvo una idea implementada
+10 comentários‖10 comments‖10 comentarios
+Fez 10 comentários em ideias‖Made 10 comments on ideas‖Hizo 10 comentarios en ideas
+~· bloqueada‖· locked‖· bloqueada
+Reconhecimento à ideia que mais mobilizou o time.‖Recognition for the idea that mobilized the team the most.‖Reconocimiento a la idea que más movilizó al equipo.
+Nenhuma ideia encontrada para a busca.‖No ideas found for this search.‖No se encontraron ideas para la búsqueda.
+Nenhuma ideia ainda. Crie a primeira!‖No ideas yet. Create the first one!‖Aún no hay ideas. ¡Cree la primera!
+🔍 Buscar ideias por texto, autor ou programa de ideia...‖🔍 Search ideas by text, author or idea program...‖🔍 Buscar ideas por texto, autor o programa de ideas...
+~Máximo de‖Maximum of‖Máximo de
+~anexos por ideia.‖attachments per idea.‖adjuntos por idea.
+~" passa de‖" exceeds‖" supera
+Ex.: inovação, segurança, produtividade‖E.g.: innovation, safety, productivity‖Ej.: innovación, seguridad, productividad
+~Anexos (imagem ou arquivo · até‖Attachments (image or file · up to‖Adjuntos (imagen o archivo · hasta
+~KB cada)‖KB each)‖KB cada uno)
+Nova ideia recebida para avaliação‖New idea received for review‖Nueva idea recibida para evaluación
+~A ideia "‖The idea "‖La idea "
+~" foi enviada para sua aprovação por‖" was sent for your approval by‖" fue enviada para su aprobación por
+Ideia salva com sucesso!‖Idea saved successfully!‖¡Idea guardada con éxito!
+Ideia atualizada com sucesso!‖Idea updated successfully!‖¡Idea actualizada con éxito!
+Somente o implantador pode ajustar uma ideia em implantação.‖Only the implementer can adjust an idea under implementation.‖Solo el implementador puede ajustar una idea en implementación.
+Avaliar / Ajustar Status:‖Review / Adjust status:‖Evaluar / Ajustar estado:
+Você é implantador de uma ideia‖You are the implementer of an idea‖Usted es implementador de una idea
+~Você foi indicado como implantador da ideia "‖You were assigned as implementer of the idea "‖Fue designado como implementador de la idea "
+Sua ideia teve atualizações‖Your idea has updates‖Su idea tuvo actualizaciones
+~Sua ideia "‖Your idea "‖Su idea "
+~" teve o status alterado para "‖" had its status changed to "‖" tuvo su estado cambiado a "
+~" ou recebeu um novo parecer pelo aprovador.‖" or received new feedback from the approver.‖" o recibió una nueva opinión del aprobador.
+Status atualizado! Use "Criar card" na ideia para levá-la a um board.‖Status updated! Use "Create card" on the idea to take it to a board.‖¡Estado actualizado! Use "Crear tarjeta" en la idea para llevarla a un tablero.
+Você é avaliador de um card‖You are the reviewer of a card‖Usted es evaluador de una tarjeta
+~criou o card "‖created the card "‖creó la tarjeta "
+~" no board "‖" on the board "‖" en el tablero "
+~" e definiu você como avaliador.‖" and set you as reviewer.‖" y le designó como evaluador.
+~Card criado no board "‖Card created on the board "‖Tarjeta creada en el tablero "
+(sem programa de ideia)‖(no idea program)‖(sin programa de ideas)
+Data inicial‖Start date‖Fecha inicial
+Data final‖End date‖Fecha final
+Campanha‖Campaign‖Campaña
+Todas as campanhas‖All campaigns‖Todas las campañas
+Todos os status‖All statuses‖Todos los estados
+~ideias atrasadas na avaliação (de‖ideas overdue for review (of‖ideas atrasadas en la evaluación (de
+~em avaliação · prazo‖in review · deadline‖en evaluación · plazo
+Campanhas mais ativas‖Most active campaigns‖Campañas más activas
+E-mail do autor‖Author email‖Correo del autor
+Não‖No‖No
+Simples‖Simple‖Simple
+Complexo‖Complex‖Complejo
+Usuário‖User‖Usuario
+Você é o novo aprovador de uma ideia‖You are the new approver of an idea‖Usted es el nuevo aprobador de una idea
+~Você passou a ser o aprovador do programa de ideia "‖You became the approver of the idea program "‖Usted pasó a ser el aprobador del programa de ideas "
+~" e da ideia "‖" and of the idea "‖" y de la idea "
+~Deseja realmente excluir o programa de ideia "‖Do you really want to delete the idea program "‖¿Realmente desea eliminar el programa de ideas "
+Colunas do board‖Board columns‖Columnas del tablero
+Padrão‖Default‖Predeterminado
+Personalizado‖Custom‖Personalizado
+Informe uma coluna por linha (a última terá a opção de arquivar cards)‖Enter one column per line (the last one will have the option to archive cards)‖Indique una columna por línea (la última tendrá la opción de archivar tarjetas)
+Uma coluna por linha (a última terá a opção de arquivar cards)‖One column per line (the last one will have the option to archive cards)‖Una columna por línea (la última tendrá la opción de archivar tarjetas)
+Ex.: Backlog‖E.g.: Backlog‖Ej.: Backlog
+Em andamento‖In progress‖En curso
+Revisão‖Review‖Revisión
+Informe pelo menos duas colunas personalizadas.‖Enter at least two custom columns.‖Indique al menos dos columnas personalizadas.
+~· Arquivamento‖· Archiving‖· Archivo
+📦 Arquivar‖📦 Archive‖📦 Archivar
+Desarquivar‖Unarchive‖Desarchivar
+Abrir o card e ver os comentários‖Open the card and see the comments‖Abrir la tarjeta y ver los comentarios
+Card arquivado.‖Card archived.‖Tarjeta archivada.
+Card desarquivado.‖Card unarchived.‖Tarjeta desarchivada.
+~Excluir o board "‖Delete the board "‖Eliminar el tablero "
+~" e todos os seus‖" and all of its‖" y todas sus
+~card(s)? Esta ação não pode ser desfeita.‖card(s)? This action cannot be undone.‖tarjeta(s)? Esta acción no se puede deshacer.
+Descreva a atividade‖Describe the activity‖Describa la actividad
+Nenhum subcard ainda.‖No subcards yet.‖Aún no hay subtarjetas.
+Subcard adicionado.‖Subcard added.‖Subtarjeta añadida.
+Subcard concluído.‖Subcard completed.‖Subtarjeta completada.
+Subcard voltou para pendente.‖Subcard set back to pending.‖La subtarjeta volvió a pendiente.
+Subcard excluído.‖Subcard deleted.‖Subtarjeta eliminada.
+~definiu você como avaliador do card "‖set you as reviewer of the card "‖le designó evaluador de la tarjeta "
+~no card "‖on the card "‖en la tarjeta "
+Novo comentário no seu card‖New comment on your card‖Nuevo comentario en su tarjeta
+~comentou no card "‖commented on the card "‖comentó en la tarjeta "
+~" do board "‖" of the board "‖" del tablero "
+Submeta concluída‖Subgoal completed‖Submeta completada
+~concluiu a submeta "‖completed the subgoal "‖completó la submeta "
+~" da meta "‖" of the goal "‖" de la meta "
+Informe a meta.‖Enter the goal.‖Indique la meta.
+Informe a previsão de conclusão.‖Enter the expected completion date.‖Indique la previsión de conclusión.
+Informe quantas ideias devem ser implantadas.‖Enter how many ideas must be implemented.‖Indique cuántas ideas deben implementarse.
+Cadastre ao menos uma submeta.‖Add at least one subgoal.‖Registre al menos una submeta.
+~Deseja realmente excluir a meta "‖Do you really want to delete the goal "‖¿Realmente desea eliminar la meta "
+Ideia aguardando sua avaliação‖Idea awaiting your review‖Idea esperando su evaluación
+~" está há‖" has been‖" lleva
+~dias sem avaliação (prazo de‖days without review (deadline of‖días sin evaluación (plazo de
+~dias).‖days).‖días).
+Meta com prazo vencido‖Goal past its deadline‖Meta con plazo vencido
+~A meta "‖The goal "‖La meta "
+~" passou do prazo (‖" is past its deadline (‖" superó el plazo (
+~) e ainda não foi concluída.‖) and has not been completed yet.‖) y aún no se ha completado.
+Quando alguém esquece a senha, você pode enviar a ela um e-mail para criar uma nova senha.‖When someone forgets their password, you can send them an email to create a new one.‖Cuando alguien olvida su contraseña, puede enviarle un correo para crear una nueva.
+~Redefinir senha de‖Reset password for‖Restablecer contraseña de
+Falha ao dispensar.‖Failed to dismiss.‖Error al descartar.
+Registrada como‖Registered as‖Registrada como
+Pivotar‖Pivot‖Pivotar
 ~Aberto‖Open‖Abierto`;
 const TR = { en: {}, es: {} }, TRP = { en: [], es: [] };
 TR_RAW.split('\n').forEach(l => {
@@ -1621,6 +1902,7 @@ function trText(str) {
   if (!core) return str;
   const d = TR[LANG];
   if (d[core] !== undefined) return m[1] + d[core] + m[3];
+  if (core.indexOf('\n') >= 0) { const o = core.split('\n').map(trText).join('\n'); return o == core ? str : m[1] + o + m[3]; }
   let out = core;
   for (const [a, b] of TRP[LANG]) if (out.includes(a)) out = out.split(a).join(b);
   return out == core ? str : m[1] + out + m[3];
@@ -2055,15 +2337,15 @@ const cursosFeitos = () => { try { return JSON.parse(lsGet(cursoKey()) || '[]');
 
 let CURSO = null;
 
-function viewCursos() {
+/* lista de cursos: agora faz parte do "Meu perfil" */
+function cursosListaHtml() {
 
   const f = cursosFeitos();
 
-  return `<div class="wrap one"><div class="box"><h2>${t('Aprendendo a inovar')}</h2><br>
-
-    ${CURSOS.map(c => `<div class="box crs" onclick="abrirCurso('${c.id}')"><h3>${esc(c.titulo)}</h3><p class="meta">${esc(c.resumo)}</p><span class="${f.includes(c.id) ? 'okb' : 'meta'}">${f.includes(c.id) ? '✔ Concluído' : 'Não concluído'}</span></div>`).join('')}</div></div>`;
+  return CURSOS.map(c => `<div class="box crs" onclick="abrirCurso('${c.id}')"><h3>${esc(c.titulo)}</h3><p class="meta">${esc(c.resumo)}</p><span class="${f.includes(c.id) ? 'okb' : 'meta'}">${f.includes(c.id) ? '✔ Concluído' : 'Não concluído'}</span></div>`).join('');
 
 }
+function viewCursos() { return viewProfile(); }
 
 function abrirCurso(id) { CURSO = id; go('curso'); window.scrollTo(0, 0); }
 
@@ -2073,7 +2355,7 @@ function viewCurso() {
 
   const feito = cursosFeitos().includes(c.id);
 
-  return `<div class="wrap one"><div class="box"><a style="cursor:pointer" onclick="go('cursos')">‹ Voltar</a><h2>${esc(c.titulo)}</h2> ${feito ? '<span class="okb">✔ Concluído</span>' : ''}<br>
+  return `<div class="wrap one"><div class="box"><a style="cursor:pointer" onclick="go('perfil')">‹ Voltar</a><h2>${esc(c.titulo)}</h2> ${feito ? '<span class="okb">✔ Concluído</span>' : ''}<br>
 
     ${c.texto.map(x => `<p style="margin:10px 0">${esc(x)}</p>`).join('')}
 
@@ -2113,7 +2395,7 @@ function concluirCurso() {
 
   const f = cursosFeitos(); if (!f.includes(CURSO)) f.push(CURSO);
 
-  lsSet(cursoKey(), JSON.stringify(f)); showToast('Curso concluído!'); go('cursos');
+  lsSet(cursoKey(), JSON.stringify(f)); showToast('Curso concluído!'); go('perfil');
 
 }
 
@@ -2225,7 +2507,6 @@ async function startApp() {
           <a onclick="go('metas')">${menuIcon('goals')} ${t('Metas')}</a>
           ${isApprover() ? `<a onclick="go('indicadores')">${menuIcon('indicators')} ${t('Indicadores')}</a>` : ''}
           ${isAdmin() ? `<a onclick="go('usuarios')">${menuIcon('users')} ${t('Gestão de usuários')}</a>` : ''}
-          <a onclick="go('cursos')">${menuIcon('learning')} ${t('Aprendendo a inovar')}</a>
           <a onclick="logout()">${menuIcon('logout')} ${t('Sair')}</a>
         </div>
       </div>
@@ -2388,7 +2669,7 @@ function ideaCard(i, full) {
 
   return `
   <div class="box idea${atrasada ? ' late' : ''}">
-    <div class="idea-author">${avatarHtml(getUser(i.emailusuario).nome)}<span>${esc(getUser(i.emailusuario).nome)}${coaut}</span></div>
+    <div class="idea-author">${avatarHtml(getUser(i.emailusuario))}<span>${esc(getUser(i.emailusuario).nome)}${coaut}</span></div>
     <h3>${esc(i.titulo)} ${full ? `<span class="badge s-${STATUS_CSS[i.status]}">${i.status}</span>` : ''}${atrasada ? ` <span class="badge late">⏰ atrasada há ${Math.floor(diasDesde(ultimaMov(i)))} dias</span>` : ''}</h3>
     <p>${esc(i.descricao)}</p>
     ${(Array.isArray(i.tags) ? i.tags : []).length ? `<div class="idea-tags">${i.tags.map(tag => `<span>${esc(tag)}</span>`).join('')}</div>` : ''}
@@ -2432,8 +2713,13 @@ const carousel = { index: 0, timer: null };
 
 const RANK = { modo: 'geral', mes: todayIso().slice(0, 7), campanha: '' };
 const mesDe = i => { const d = parseDate(i.data); return isNaN(d) ? '' : `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; };
-const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
-const nomeMes = ym => { const [y, m] = ym.split('-'); return MESES[+m - 1] + ' de ' + y; };
+const MESES_I = {
+  pt: ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'],
+  en: ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'],
+  es: ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
+};
+const MESES = MESES_I[LANG] || MESES_I.pt;
+const nomeMes = ym => { const [y, m] = ym.split('-'); return MESES[+m - 1] + (LANG == 'en' ? ' ' : ' de ') + y; };
 const rotuloMes = ym => { const [y, m] = ym.split('-'); return MESES[+m - 1].slice(0, 3) + '/' + y.slice(2); };
 
 function scoreRanking() {
@@ -2460,7 +2746,7 @@ function rankingInner(limit) {
     ${RANK.modo == 'mes' ? `<input type="month" value="${esc(RANK.mes)}" onchange="setRank('mes',this.value)">` : ''}
     ${VIEW == 'home' ? `<a style="cursor:pointer;text-decoration:underline" onclick="go('score')">Ver score completo</a>` : ''}
     ${RANK.modo == 'campanha' ? `<select onchange="setRank('campanha',this.value)">${progs.map(p => `<option value="${esc(p.programaideia)}" ${p.programaideia == RANK.campanha ? 'selected' : ''}>${esc(p.programaideia)}</option>`).join('') || '<option value="">Nenhum programa de ideia</option>'}</select>` : ''}` : ''}
-    ${(limit ? scoreRanking().slice(0, limit) : scoreRanking()).map(s => `<div class="sc"><div class="av">${esc(s.u.nome.slice(0, 2).toUpperCase())}</div><span>${esc(s.u.nome)} <small>${selosIcones(s.u.email)}</small></span><b>${s.pontos}</b></div>`).join('')}`;
+    ${(limit ? scoreRanking().slice(0, limit) : scoreRanking()).map(s => `<div class="sc">${avatarHtml(s.u, 42)}<span>${esc(s.u.nome)} <small>${selosIcones(s.u.email)}</small></span><b>${s.pontos}</b></div>`).join('')}`;
 }
 
 function setRank(campo, valor) {
@@ -3023,14 +3309,67 @@ function exportarCsv() {
 }
 
 /* ============================= 8. PERFIL ================================ */
+function fotoPerfilHtml() {
+  const tem = !!fotoDe(ME.email);
+  return `<div class="perfil-foto">
+    ${avatarHtml(ME, 96)}
+    <input type="file" id="fotoIn" accept="image/*" style="display:none" onchange="onFotoPick(this)">
+    <div><a class="fotolink" onclick="$('#fotoIn').click()">Alterar foto</a>${tem ? '<a class="fotolink" onclick="removerFoto()">Remover foto</a>' : ''}</div>
+    <p class="meta" style="margin-top:4px">Imagem de até 200 KB.</p>
+    <p class="msg" id="fotoMsg"></p>
+  </div>`;
+}
+/* reduz para 256x256 (recorte central) e devolve um data URL JPEG leve */
+function reduzirFoto(file) {
+  return new Promise((ok, erro) => {
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      try {
+        const S = 256, c = document.createElement('canvas'); c.width = c.height = S;
+        const x = c.getContext('2d'), lado = Math.min(img.naturalWidth, img.naturalHeight);
+        if (!lado) throw new Error('imagem vazia');
+        x.fillStyle = '#fff'; x.fillRect(0, 0, S, S);
+        x.drawImage(img, (img.naturalWidth - lado) / 2, (img.naturalHeight - lado) / 2, lado, lado, 0, 0, S, S);
+        ok(c.toDataURL('image/jpeg', 0.85));
+      } catch (e) { erro(e); } finally { URL.revokeObjectURL(url); }
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); erro(new Error('formato não suportado')); };
+    img.src = url;
+  });
+}
+async function onFotoPick(inp) {
+  const f = inp.files && inp.files[0]; inp.value = '';
+  const say = (m, ok) => { const el = $('#fotoMsg'); if (el) { el.style.color = ok ? 'var(--g)' : ''; el.textContent = m; } };
+  if (!f) return;
+  if (!/^image\//.test(f.type)) return say('Escolha um arquivo de imagem.');
+  if (f.size > FOTO_MAX_BYTES) return say('A imagem deve ter no máximo 200 KB.');
+  say('Salvando foto...', true);
+  try {
+    const url = await reduzirFoto(f);
+    await fb.db.ref('empresas/' + EMP_ID + '/fotos/' + fotoKey(ME.email)).set(url);
+    FOTOS[fotoKey(ME.email)] = url;
+    render(); showToast('Foto atualizada!');
+  } catch (e) { console.warn('Falha ao salvar a foto:', e); say('Não foi possível salvar a foto. Tente outra imagem.'); }
+}
+async function removerFoto() {
+  try {
+    await fb.db.ref('empresas/' + EMP_ID + '/fotos/' + fotoKey(ME.email)).remove();
+    delete FOTOS[fotoKey(ME.email)];
+    render(); showToast('Foto removida.');
+  } catch (e) { console.warn('Falha ao remover a foto:', e); const el = $('#fotoMsg'); if (el) el.textContent = 'Não foi possível remover a foto.'; }
+}
+
 function viewProfile() {
   return `
   <div class="wrap one"><div class="box" style="max-width:500px;margin:auto">
     <h2>Meu perfil</h2><br>
+    ${fotoPerfilHtml()}
     <label>Nome completo</label><input readonly value="${esc(ME.nome)}">
     <label>E-mail</label><input readonly value="${esc(ME.email)}">
     <label>Data de nascimento</label><input readonly value="${esc(formatDate(ME.datanascimento || ME.nascimento || ''))}">
     ${conquistasHtml(ME.email)}
+    <h3 style="color:var(--g)">${t('Aprendendo a inovar')}</h3><br>
+    ${cursosListaHtml()}<br>
     <h3 style="color:var(--g)">${t('Alterar senha')}</h3><br>
     <label>${t('Senha atual')}</label><input type="password" id="p1">
     <label>${t('Nova senha')}</label><input type="password" id="p2">
@@ -3177,7 +3516,7 @@ function viewUsers() {
     ${gr.length ? `<div class="box"><h3 style="color:var(--g)">Grupos</h3>${gr.map(g => `<div class="row" style="align-items:center;margin-top:8px"><div><b>${esc(g.nome)}</b><div class="meta">${(g.membros || []).map(e => esc(getUser(e).nome)).join(', ')}</div></div><button class="btn s r" style="margin-left:auto" onclick="deleteGroup(${g.id})">Excluir</button></div>`).join('')}</div>` : ''}
     ${companyUsers().map(u => `
       <div class="box sc">
-        <div class="av">${esc(u.nome.slice(0, 2).toUpperCase())}</div>
+        ${avatarHtml(u, 42)}
         <div>${esc(u.nome)}<div class="meta">${esc(u.email)} · ${u.perfil}</div>
           <div class="meta">Grupos: ${userGroups(u.email).map(g => esc(g.nome)).join(', ') || '—'}</div></div>
         <label class="inat">
@@ -3255,7 +3594,7 @@ function viewKanban() {
       ${lista.map(x => `
         <div class="box idea" style="cursor:pointer" onclick="openBoard(${x.k})">
           <h3>${esc(x.b.board)}</h3>
-          <div class="meta userline">${avatarHtml(getUser(x.b.emailautorcriacao).nome)}<span>Criado por ${esc(getUser(x.b.emailautorcriacao).nome)} em ${esc(x.b.datacriacao)}</span></div>
+          <div class="meta userline">${avatarHtml(getUser(x.b.emailautorcriacao))}<span>Criado por ${esc(getUser(x.b.emailautorcriacao).nome)} em ${esc(x.b.datacriacao)}</span></div>
           <div class="meta">${x.b.aplicacaocard.length} card(s) · ${x.b.usuarios.length} usuário(s)</div>
         </div>`).join('')}
     </div>
@@ -3350,8 +3689,8 @@ function viewBoard() {
           return `
             <div class="kc p${c.prioridade}${atras ? ' late' : ''}${c.arquivado ? ' arq' : ''}" data-id="${c.id}" onpointerdown="kStart(event, ${c.id})"><span class="kh" title="Arraste para mover">⠿</span><b>${esc(c.cardnome)}</b>
               <p class="meta"><span class="userline">${esc(c.descricao)}</span>
-                <br><span class="userline">${avatarHtml(getUser(c.emailautor).nome, 24)}${esc(getUser(c.emailautor).nome)}</span>
-                <br><span class="userline">${avatarHtml(getUser(c.emailavaliador).nome, 24)}${esc(getUser(c.emailavaliador).nome)}</span><br>Prioridade: ${PRIORIDADE[c.prioridade]}
+                <br><span class="userline">${avatarHtml(getUser(c.emailautor), 24)}${esc(getUser(c.emailautor).nome)}</span>
+                <br><span class="userline">${avatarHtml(getUser(c.emailavaliador), 24)}${esc(getUser(c.emailavaliador).nome)}</span><br>Prioridade: ${PRIORIDADE[c.prioridade]}
                 ${c.prazo ? `<br><span class="date-wrap">Prazo: ${fmtIso(c.prazo)}${atras ? ' <b style="color:#ff6b6b">⚠ atrasado</b>' : ''}</span>` : ''}
                 ${c.arquivado ? '<br>📦 Arquivado' : ''}${c.subcards && c.subcards.length ? `<br><b>Subcards: ${c.subcards.filter(sc => sc.status === 'concluido').length}/${c.subcards.length} concluídos</b>` : ''}</p>
               <button class="btn s o" onclick="openCardForm(${c.id})">Editar</button>
@@ -3677,13 +4016,13 @@ function goalCard(m, k) {
     <h3>${esc(m.meta)} <span class="badge ${pct >= 100 ? 's-implantada' : 's-implantacao'}">${pct}%</span>${atras ? ' <span class="badge late">⏰ Prazo vencido</span>' : ''}</h3>
     <div class="pbar"><div style="width:${pct}%"></div></div>
     ${m.campanha ? `<div class="meta">🎯 Programa de ideia: ${esc(m.campanha)} · ${ideiasImplantadas(m.campanha)} de ${m.alvo} ideia(s) implantada(s)</div>` : ''}
-    <div class="meta userline">${avatarHtml(getUser(m.autor).nome)}<span>Criada por ${esc(getUser(m.autor).nome)} em ${esc(m.dataCriacao)} · Previsão de conclusão: ${esc(m.dataPrevisaoConclusao)}</span></div>
-    <div class="meta userline"><span>Usuários:</span><span>${m.usuarios.map(u => `${avatarHtml(getUser(u.email).nome, 24)}${esc(getUser(u.email).nome)}`).join(' ') || '-'}</span></div>
+    <div class="meta userline">${avatarHtml(getUser(m.autor))}<span>Criada por ${esc(getUser(m.autor).nome)} em ${esc(m.dataCriacao)} · Previsão de conclusão: ${esc(m.dataPrevisaoConclusao)}</span></div>
+    <div class="meta userline"><span>Usuários:</span><span>${m.usuarios.map(u => `${avatarHtml(getUser(u.email), 24)}${esc(getUser(u.email).nome)}`).join(' ') || '-'}</span></div>
     ${m.submeta.map((x, j) => `
       <label style="display:flex;align-items:center;gap:6px;color:var(--fg);font-size:.95rem;padding:3px 0;cursor:pointer">
         <input type="checkbox" style="margin:0" ${x.concluida ? 'checked' : ''} onchange="toggleSubgoal(${k},${j},this.checked)">
         <span style="${x.concluida ? 'text-decoration:line-through;opacity:.6' : ''}">${esc(x.descricao)}</span>
-        ${x.responsavel ? `<small class="userline" style="color:var(--mut)">· Responsável: ${avatarHtml(getUser(x.responsavel).nome, 22)}${esc(getUser(x.responsavel).nome)}</small>` : ''}
+        ${x.responsavel ? `<small class="userline" style="color:var(--mut)">· Responsável: ${avatarHtml(getUser(x.responsavel), 22)}${esc(getUser(x.responsavel).nome)}</small>` : ''}
       </label>`).join('')}
     ${isApprover() ? `<br><button class="btn s r" onclick="deleteGoal(${k})">Excluir</button>` : ''}
   </div>`;
