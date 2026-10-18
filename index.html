@@ -1888,6 +1888,9 @@ Quando alguém esquece a senha, você pode enviar a ela um e-mail para criar uma
 Falha ao dispensar.‖Failed to dismiss.‖Error al descartar.
 Registrada como‖Registered as‖Registrada como
 Pivotar‖Pivot‖Pivotar
+Não foi possível ler esta imagem. Tente um arquivo JPG ou PNG.‖Could not read this image. Try a JPG or PNG file.‖No se pudo leer esta imagen. Pruebe con un archivo JPG o PNG.
+Sem permissão para gravar a foto: as regras do Firebase precisam liberar o caminho "fotos" da empresa.‖No permission to save the photo: the Firebase rules must allow the company "fotos" path.‖Sin permiso para guardar la foto: las reglas de Firebase deben permitir la ruta "fotos" de la empresa.
+~Não foi possível salvar a foto (‖Could not save the photo (‖No se pudo guardar la foto (
 ~Aberto‖Open‖Abierto`;
 const TR = { en: {}, es: {} }, TRP = { en: [], es: [] };
 TR_RAW.split('\n').forEach(l => {
@@ -3344,12 +3347,18 @@ async function onFotoPick(inp) {
   if (!/^image\//.test(f.type)) return say('Escolha um arquivo de imagem.');
   if (f.size > FOTO_MAX_BYTES) return say('A imagem deve ter no máximo 200 KB.');
   say('Salvando foto...', true);
+  let url;
+  try { url = await reduzirFoto(f); }
+  catch (e) { console.warn('Falha ao ler a imagem:', e); return say('Não foi possível ler esta imagem. Tente um arquivo JPG ou PNG.'); }
   try {
-    const url = await reduzirFoto(f);
     await fb.db.ref('empresas/' + EMP_ID + '/fotos/' + fotoKey(ME.email)).set(url);
     FOTOS[fotoKey(ME.email)] = url;
     render(); showToast('Foto atualizada!');
-  } catch (e) { console.warn('Falha ao salvar a foto:', e); say('Não foi possível salvar a foto. Tente outra imagem.'); }
+  } catch (e) {
+    console.warn('Falha ao salvar a foto:', e);
+    const perm = /permission|PERMISSION/.test((e && (e.code || e.message)) || '');
+    say(perm ? 'Sem permissão para gravar a foto: as regras do Firebase precisam liberar o caminho "fotos" da empresa.' : 'Não foi possível salvar a foto (' + ((e && (e.code || e.message)) || 'erro') + ').');
+  }
 }
 async function removerFoto() {
   try {
