@@ -1045,9 +1045,12 @@ async function loadCompanyData() {
 async function refreshData() {
   let changed = false;
   for (const t of Object.keys(SYNC)) {
-    if (dirty.has(t)) continue;
+    if (dirty.has(t) || flushing.has(t)) continue;
     const lista = await loadTable(t);
     if (!lista) continue;
+    /* Durante o await acima o usuário pode ter criado/editado algo (ex.: novo card). Se a tabela ficou "suja"
+       ou está sendo gravada, descarta esta leitura (é anterior à alteração) para não apagar o que acabou de ser salvo. */
+    if (dirty.has(t) || flushing.has(t)) continue;
     const nova = SYNC[t].norm(lista);
     if (JSON.stringify(nova) !== JSON.stringify(DB[t])) { DB[t] = nova; changed = true; }
     snapshot(t);
@@ -1075,16 +1078,22 @@ function save(...tables) {
   flushTimer = setTimeout(flush, 700);
 }
 
+const flushing = new Set();
 async function writeTable(tb) {
-  if (SYNC[tb]) await mergeRemote(tb);
-  await tableRef(tb).set(limpo(DB[tb]));
-  if (SYNC[tb]) snapshot(tb);
+  flushing.add(tb);
+  try {
+    if (SYNC[tb]) await mergeRemote(tb);
+    await tableRef(tb).set(limpo(DB[tb]));
+    if (SYNC[tb]) snapshot(tb);
+  } finally { flushing.delete(tb); }
 }
 
 async function flush() {
   for (const tb of [...dirty]) {
-    try { await writeTable(tb); dirty.delete(tb); }
+    dirty.delete(tb); /* se o usuário alterar de novo durante a gravação, save() marca como suja outra vez */
+    try { await writeTable(tb); }
     catch (e) {
+      dirty.add(tb);
       console.warn('Falha ao gravar "' + tb + '":', e);
       showToast('Não foi possível salvar as alterações. Verifique a conexão.', 'error');
     }
