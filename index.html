@@ -750,6 +750,77 @@ input[type=date]{max-width:100%;min-width:0}
 .sc .inat{margin-left:auto;display:flex;align-items:center;gap:6px;padding-right:12px;white-space:nowrap;flex:none}
 .sc .inat input{width:auto;margin:0}
 .fdesc{font-size:.78rem;line-height:1.5;word-break:break-word;color:var(--mut);margin:-4px 0 10px}
+
+/* Telas do produto INSIGHT */
+.telas-produto {
+  margin: 28px 0 24px;
+  padding: 22px 0 8px;
+  border-top: 1px solid var(--bd);
+}
+.telas-produto-titulo {
+  color: var(--g);
+  font-size: 1.35rem;
+  text-align: center;
+  margin-bottom: 8px;
+}
+.telas-produto-intro {
+  color: var(--mut);
+  text-align: center;
+  line-height: 1.6;
+  max-width: 720px;
+  margin: 0 auto 22px;
+}
+.telas-produto-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 500px), 1fr));
+  gap: 28px 24px;
+  justify-items: center;
+}
+.tela-produto {
+  width: 500px;
+  max-width: 100%;
+  margin: 0;
+  min-width: 0;
+}
+.tela-produto img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 360px;
+  object-fit: contain;
+  object-position: center;
+  border-radius: 16px;
+  border: 1px solid var(--bd);
+  background: var(--bg3);
+  box-shadow: 0 8px 22px rgba(0,0,0,.18);
+  transition: transform .25s ease, box-shadow .25s ease;
+}
+.tela-produto img:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px rgba(0,0,0,.25);
+}
+.tela-produto figcaption {
+  margin-top: 12px;
+  color: var(--fg);
+  font-size: .95rem;
+  line-height: 1.6;
+  text-align: left;
+}
+.tela-produto figcaption strong {
+  display: block;
+  color: var(--g);
+  margin-bottom: 5px;
+}
+.tela-produto figcaption span {
+  display: block;
+  color: var(--mut);
+}
+@media (max-width: 600px) {
+  .telas-produto { padding-top: 18px; }
+  .telas-produto-grid { gap: 22px; }
+  .tela-produto img { border-radius: 12px; }
+}
+
 </style>
 </head>
 <body>
@@ -1313,6 +1384,33 @@ function renderCompanyPage() {
         <div class="box"><h3>📈 Indicadores e metas</h3><p class="meta">Acompanhe indicadores de ideias e defina metas e submetas com responsáveis e prazos.</p></div>
         <div class="box"><h3>🤖 IA integrada</h3><p class="meta">Ao cadastrar uma ideia, a IA analisa o título e mostra ideias parecidas já cadastradas, evitando duplicidades e reaproveitando o que já existe.</p></div>
         <div class="box"><h3>👥 Gestão de usuários</h3><p class="meta">Perfis de colaborador, aprovador e administrador, com acesso separado por empresa.</p></div>
+      </div>
+
+      <div class="telas-produto">
+        <h3 class="telas-produto-titulo">Conheça as telas do INSIGHT</h3>
+        <p class="telas-produto-intro">Veja como cada recurso ajuda a transformar ideias em melhorias concretas para a empresa.</p>
+        <div class="telas-produto-grid">
+          <figure class="tela-produto">
+            <img loading="lazy" src="img/board.png" alt="Tela do board Kanban do INSIGHT">
+            <figcaption><strong>Board Kanban — gestão da implantação</strong><span>Organize as tarefas em colunas, acompanhe o que está por fazer, em andamento ou concluído e visualize o progresso das ações necessárias para colocar as ideias em prática.</span></figcaption>
+          </figure>
+          <figure class="tela-produto">
+            <img loading="lazy" src="img/home.png" alt="Tela inicial com o feed de ideias dos colaboradores">
+            <figcaption><strong>Home — ideias dos colaboradores</strong><span>Explore as ideias compartilhadas pela equipe em um só lugar. Acompanhe propostas, interaja com curtidas e comentários e ajude a fortalecer uma cultura de inovação colaborativa.</span></figcaption>
+          </figure>
+          <figure class="tela-produto">
+            <img loading="lazy" src="img/ind.png" alt="Tela de indicadores e métricas das ideias">
+            <figcaption><strong>Indicadores — dados para decidir melhor</strong><span>Visualize métricas relacionadas às ideias e acompanhe os resultados do programa de inovação. Use os dados para identificar tendências, avaliar o andamento e orientar decisões.</span></figcaption>
+          </figure>
+          <figure class="tela-produto">
+            <img loading="lazy" src="img/metas.png" alt="Tela de metas e prazos da equipe">
+            <figcaption><strong>Metas — objetivos, responsáveis e prazos</strong><span>Defina metas para os times, estabeleça datas de entrega e acompanhe o progresso. As metas ajudam a dar foco às iniciativas e mais visibilidade ao que precisa ser realizado.</span></figcaption>
+          </figure>
+          <figure class="tela-produto">
+            <img loading="lazy" src="img/novaIdeia.png" alt="Tela de cadastro de uma nova ideia">
+            <figcaption><strong>Nova ideia — da oportunidade à proposta</strong><span>Registre uma sugestão, descreva o problema ou oportunidade e informe os benefícios esperados. Assim, a proposta fica organizada para ser avaliada e acompanhada ao longo do processo.</span></figcaption>
+          </figure>
+        </div>
       </div>
 
       <h2>Como funciona</h2>
@@ -2018,7 +2116,19 @@ Planejamento e construção conjunta‖Planning and building together‖Planific
 Profissionais trabalhando em inovação‖Professionals working on innovation‖Profesionales trabajando en innovación
 Experimentar, aprender e evoluir‖Experiment, learn, and evolve‖Experimentar, aprender y evolucionar
 Equipe compartilhando ideias‖Team sharing ideas‖Equipo compartiendo ideas
-Boas ideias podem vir de qualquer pessoa‖Good ideas can come from anyone‖Las buenas ideas pueden venir de cualquier persona`;
+Boas ideias podem vir de qualquer pessoa‖Good ideas can come from anyone‖Las buenas ideas pueden venir de cualquier persona
+Conheça as telas do INSIGHT‖Explore the INSIGHT screens‖Conoce las pantallas de INSIGHT
+Veja como cada recurso ajuda a transformar ideias em melhorias concretas para a empresa.‖See how each feature helps turn ideas into concrete improvements for the company.‖Descubre cómo cada función ayuda a convertir ideas en mejoras concretas para la empresa.
+Board Kanban — gestão da implantação‖Kanban board — implementation management‖Tablero Kanban — gestión de la implementación
+Organize as tarefas em colunas, acompanhe o que está por fazer, em andamento ou concluído e visualize o progresso das ações necessárias para colocar as ideias em prática.‖Organize tasks into columns, track what is to do, in progress, or completed, and see progress on the actions needed to put ideas into practice.‖Organiza tareas en columnas, sigue lo pendiente, lo que está en curso o finalizado y visualiza el avance de las acciones necesarias para poner las ideas en práctica.
+Home — ideias dos colaboradores‖Home — employee ideas‖Inicio — ideas de los colaboradores
+Explore as ideias compartilhadas pela equipe em um só lugar. Acompanhe propostas, interaja com curtidas e comentários e ajude a fortalecer uma cultura de inovação colaborativa.‖Explore ideas shared by the team in one place. Follow proposals, interact with likes and comments, and help strengthen a culture of collaborative innovation.‖Explora las ideas compartidas por el equipo en un solo lugar. Sigue propuestas, interactúa con Me gusta y comentarios y contribuye a fortalecer una cultura de innovación colaborativa.
+Indicadores — dados para decidir melhor‖Indicators — data for better decisions‖Indicadores — datos para decidir mejor
+Visualize métricas relacionadas às ideias e acompanhe os resultados do programa de inovação. Use os dados para identificar tendências, avaliar o andamento e orientar decisões.‖View idea-related metrics and track the results of the innovation program. Use data to identify trends, assess progress, and guide decisions.‖Visualiza métricas relacionadas con las ideas y sigue los resultados del programa de innovación. Usa los datos para identificar tendencias, evaluar el progreso y orientar decisiones.
+Metas — objetivos, responsáveis e prazos‖Goals — objectives, owners, and deadlines‖Metas — objetivos, responsables y plazos
+Defina metas para os times, estabeleça datas de entrega e acompanhe o progresso. As metas ajudam a dar foco às iniciativas e mais visibilidade ao que precisa ser realizado.‖Set goals for teams, establish due dates, and track progress. Goals help focus initiatives and make planned work more visible.‖Define metas para los equipos, establece fechas de entrega y sigue el progreso. Las metas ayudan a enfocar las iniciativas y dan más visibilidad al trabajo pendiente.
+Nova ideia — da oportunidade à proposta‖New idea — from opportunity to proposal‖Nueva idea — de la oportunidad a la propuesta
+Registre uma sugestão, descreva o problema ou oportunidade e informe os benefícios esperados. Assim, a proposta fica organizada para ser avaliada e acompanhada ao longo do processo.‖Submit a suggestion, describe the problem or opportunity, and outline the expected benefits. This keeps the proposal organized for evaluation and follow-up throughout the process.‖Registra una sugerencia, describe el problema u oportunidad e indica los beneficios esperados. Así, la propuesta queda organizada para evaluarla y hacer seguimiento durante todo el proceso.`
 const TR = { en: {}, es: {} }, TRP = { en: [], es: [] };
 TR_RAW.split('\n').forEach(l => {
   const q = l.split('‖'); if (q.length < 3) return;
